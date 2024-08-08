@@ -113,7 +113,6 @@ function App() {
   return (
     <>
       <p>Microphone: {listening ? "on" : "off"}</p>
-      <p>{transcript}</p>
       <div
         style={{
           display: "grid",
