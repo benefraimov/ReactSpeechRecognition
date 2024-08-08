@@ -7,8 +7,8 @@ import "./App.css";
 
 function App() {
   const [isActive, setIsActive] = useState(false);
-  const [lastProcessedTranscript, setLastProcessedTranscript] = useState("");
-  const [blockUpdated, setBlockUpdated] = useState();
+  const [initialText, setInitialText] = useState("");
+  const [blockUpdated, setBlockUpdated] = useState(null);
   const [blocks, setBlocks] = useState([
     { id: "1", head: "apple", isActive: false, text: "this is test 1" },
     { id: "2", head: "black", isActive: false, text: "this is test 2" },
@@ -26,9 +26,11 @@ function App() {
   }
 
   // first use effect to listen to alanguage
+  // Start listening for speech recognition
   const startListening = useCallback(() => {
     SpeechRecognition.startListening({
       language: "en-US",
+      continuous: true,
     });
   });
 
@@ -36,84 +38,82 @@ function App() {
     startListening();
   }, [startListening]);
 
-  const onListening = useCallback(() => {
+  const handleCommand = useCallback(() => {
     if (transcript) {
       // console.log(transcript);
       // regex to accurate the words
       const regexStop = new RegExp("stop", "i");
       const regexDelete = new RegExp("erase", "i");
+
       // first if block stop transcripting
+      // Stop listening and reset blocks
       if (regexStop.test(transcript)) {
         setIsActive(false);
         setBlockUpdated();
-        setBlocks((prevState) => {
-          return prevState.map((block) => {
-            return { ...block, isActive: false };
-          });
-        });
+        setInitialText(""); // Clear the initial text when stopping
+        setBlocks((prevState) =>
+          prevState.map((block) => ({ ...block, isActive: false }))
+        );
+        resetTranscript();
+        return;
       }
+
       // second if block erase transcripting
+      // Erase text from the active block
       if (regexDelete.test(transcript)) {
-        setBlocks((prevState) => {
-          return prevState.map((block) => {
+        setBlocks((prevState) =>
+          prevState.map((block) => {
             if (block.id === blockUpdated) {
               return { ...block, text: "" };
             } else {
               return block;
             }
-          });
-        });
+          })
+        );
+        resetTranscript();
+        return;
       }
       // third if block -> set isActive on and set blockUpdated to the blockID
+      // Activate a block based on the spoken keyword
       if (!isActive) {
-        setBlocks((prevState) => {
-          return prevState.map((block) => {
+        setBlocks((prevState) =>
+          prevState.map((block) => {
             const regexStart = new RegExp(block.head, "i");
             if (regexStart.test(transcript)) {
-              block.isActive = true;
-              // console.log(transcript);
-              // console.log("wow");
               setIsActive(true);
               setBlockUpdated(block.id);
+              setInitialText(block.text); // Save the initial text of the block
+              block.isActive = true;
+              resetTranscript();
             }
             return block;
-          });
-        });
-      }
-      // fourth if block -> transcripting to the blocks
-      if (isActive) {
-        // console.log(transcript);
-        if (transcript !== lastProcessedTranscript) {
-          setBlocks((prevBlocks) => {
-            return prevBlocks.map((block) => {
-              if (block.id === blockUpdated) {
-                console.log(transcript);
-                const newText = transcript
-                  .replace(lastProcessedTranscript, "")
-                  .trim();
-                return { ...block, text: (block.text || "") + " " + newText };
-              } else {
-                return block;
-              }
-            });
-          });
-          setLastProcessedTranscript(transcript);
-        }
+          })
+        );
+      } else {
+        // Append new transcript to the saved initial text
+        setBlocks((prevBlocks) =>
+          prevBlocks.map((block) => {
+            if (block.id === blockUpdated) {
+              return {
+                ...block,
+                text: `${initialText} ${transcript}`, // Append the new transcript to the initial text
+              };
+            }
+            return block;
+          })
+        );
       }
     }
-  }, [transcript]);
+  }, [transcript, isActive, blockUpdated, initialText, resetTranscript]);
 
   useEffect(() => {
-    onListening();
-  }, [onListening]);
-
-  // useEffect(() => {
-  //   console.log(blocks);
-  // }, [blocks]);
+    handleCommand();
+  }, [handleCommand]);
 
   return (
     <>
       <p>Microphone: {listening ? "on" : "off"}</p>
+      <p>{transcript}</p>
       <div
         style={{
           display: "grid",
