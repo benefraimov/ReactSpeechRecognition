@@ -9,11 +9,7 @@ function App() {
   const [isActive, setIsActive] = useState(false);
   const [initialText, setInitialText] = useState("");
   const [blockUpdated, setBlockUpdated] = useState(null);
-  const [blocks, setBlocks] = useState([
-    { id: "1", head: "apple", isActive: false, text: "this is test 1" },
-    { id: "2", head: "black", isActive: false, text: "this is test 2" },
-    { id: "3", head: "white", isActive: false, text: "this is test 3" },
-  ]);
+  const [blocks, setBlocks] = useState([]);
   const {
     transcript,
     listening,
@@ -44,6 +40,8 @@ function App() {
       // regex to accurate the words
       const regexStop = new RegExp("stop", "i");
       const regexDelete = new RegExp("erase", "i");
+      const regexCreate = new RegExp("open", "i");
+      const regexChange = new RegExp("change", "i");
 
       // first if block stop transcripting
       // Stop listening and reset blocks
@@ -61,6 +59,7 @@ function App() {
       // second if block erase transcripting
       // Erase text from the active block
       if (regexDelete.test(transcript)) {
+        setInitialText("");
         setBlocks((prevState) =>
           prevState.map((block) => {
             if (block.id === blockUpdated) {
@@ -73,6 +72,7 @@ function App() {
         resetTranscript();
         return;
       }
+
       // third if block -> set isActive on and set blockUpdated to the blockID
       // Activate a block based on the spoken keyword
       if (!isActive) {
@@ -94,14 +94,43 @@ function App() {
         setBlocks((prevBlocks) =>
           prevBlocks.map((block) => {
             if (block.id === blockUpdated) {
-              return {
-                ...block,
-                text: `${initialText} ${transcript}`, // Append the new transcript to the initial text
-              };
+              if (regexChange.test(transcript)) {
+                if (regexDelete.test(transcript)) {
+                  resetTranscript();
+                }
+
+                return {
+                  ...block,
+                  head:
+                    transcript === "change"
+                      ? ""
+                      : transcript.replace("change", ""), // change the head name to the new transcript
+                };
+              } else {
+                return {
+                  ...block,
+                  text: `${initialText} ${transcript}`, // Append the new transcript to the initial text
+                };
+              }
             }
             return block;
           })
         );
+      }
+
+      if (regexCreate.test(transcript)) {
+        console.log("speak now");
+        setBlocks((prevState) => [
+          ...prevState,
+          {
+            id: blocks.length + 1,
+            head: "",
+            isActive: true,
+            text: "",
+          },
+        ]);
+        resetTranscript();
+        return;
       }
     }
   }, [transcript, isActive, blockUpdated, initialText, resetTranscript]);
@@ -117,7 +146,7 @@ function App() {
         style={{
           display: "grid",
           gap: "16px",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(1000px, 1fr))",
         }}>
         {blocks.map((block) => {
           return (
@@ -133,7 +162,10 @@ function App() {
               }
               key={block.id}>
               <h1>{block.head}</h1>
-              <textarea value={block.text} readOnly></textarea>
+              <textarea
+                value={block.text}
+                readOnly
+                style={{ width: "1000px" }}></textarea>
             </div>
           );
         })}
